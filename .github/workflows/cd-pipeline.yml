@@ -27,3 +27,9 @@ jobs:
 
     - name: Benchmark
       run: dotnet run -c Release --project AsyncEnumerableSource.Benchmarks --no-build
+
+    - name: Publish Benchmarks
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmarks.md
+        path: AsyncEnumerableSource.Benchmarks/BenchmarkDotNet.Artifacts/results/AsyncEnumerableSource.Benchmarks.AsyncEnumerableSourceBenchmarks-report-github.md
