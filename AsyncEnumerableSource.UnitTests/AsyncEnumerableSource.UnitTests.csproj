@@ -8,7 +8,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="AwesomeAssertions" Version="8.0.1" />
+        <PackageReference Include="AwesomeAssertions" Version="8.0.1"/>
         <PackageReference Include="coverlet.collector" Version="6.0.2"/>
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1"/>
         <PackageReference Include="xunit" Version="2.9.2"/>
@@ -17,7 +17,7 @@
 
     <ItemGroup>
         <Using Include="Xunit"/>
-        <Using Include="AwesomeAssertions"/>
+        <Using Include="FluentAssertions"/>
     </ItemGroup>
 
     <ItemGroup>

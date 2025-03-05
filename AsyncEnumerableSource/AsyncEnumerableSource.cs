@@ -12,7 +12,7 @@ public abstract class AsyncEnumerableSource
     };
 }
 
-public class AsyncEnumerableSource<T> : AsyncEnumerableSource
+public sealed class AsyncEnumerableSource<T> : AsyncEnumerableSource
 {
     private readonly List<Channel<T>> _channels = [];
     private bool _completed;

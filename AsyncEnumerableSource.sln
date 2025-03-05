@@ -4,6 +4,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AsyncEnumerableSource", "As
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AsyncEnumerableSource.UnitTests", "AsyncEnumerableSource.UnitTests\AsyncEnumerableSource.UnitTests.csproj", "{E00BC85E-31B8-407E-A08A-55D2522DBEE8}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AsyncEnumerableSource.Benchmarks", "AsyncEnumerableSource.Benchmarks\AsyncEnumerableSource.Benchmarks.csproj", "{A3635E6B-DB1C-4AD6-9285-A8A0643C8FFD}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,5 +20,9 @@ Global
 		{E00BC85E-31B8-407E-A08A-55D2522DBEE8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E00BC85E-31B8-407E-A08A-55D2522DBEE8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E00BC85E-31B8-407E-A08A-55D2522DBEE8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A3635E6B-DB1C-4AD6-9285-A8A0643C8FFD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A3635E6B-DB1C-4AD6-9285-A8A0643C8FFD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A3635E6B-DB1C-4AD6-9285-A8A0643C8FFD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A3635E6B-DB1C-4AD6-9285-A8A0643C8FFD}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
