@@ -27,7 +27,7 @@ public sealed class AsyncEnumerableSourceTests
         // Act
         foreach (var item in expected)
         {
-            await source.YieldReturn(item);
+            source.YieldReturn(item);
         }
         
         source.Complete();
@@ -68,7 +68,7 @@ public sealed class AsyncEnumerableSourceTests
         // Act
         foreach (var item in expected)
         {
-            await source.YieldReturn(item);
+            source.YieldReturn(item);
         }
         
         source.Complete();
@@ -116,7 +116,7 @@ public sealed class AsyncEnumerableSourceTests
         // Act
         foreach (var item in expected)
         {
-            await source.YieldReturn(item);
+            source.YieldReturn(item);
         }
         
         source.Fault(expectedException);
@@ -162,7 +162,7 @@ public sealed class AsyncEnumerableSourceTests
         // Act
         foreach (var item in expected)
         {
-            await source.YieldReturn(item);
+            source.YieldReturn(item);
         }
         
         source.Fault(expectedException);
@@ -210,7 +210,7 @@ public sealed class AsyncEnumerableSourceTests
         // Act
         foreach (var item in expected[..3])
         {
-            await source.YieldReturn(item);
+            source.YieldReturn(item);
         }
 
         await Task.Delay(2);  // Allow time for channel to emit previous values before the task is cancelled
@@ -218,7 +218,7 @@ public sealed class AsyncEnumerableSourceTests
 
         foreach (var item in expected[3..])
         {
-            await source.YieldReturn(item);
+            source.YieldReturn(item);
         }
         
         source.Complete();
@@ -257,12 +257,12 @@ public sealed class AsyncEnumerableSourceTests
         // Act
         foreach (var item in expected)
         {
-            await source.YieldReturn(item);
+            source.YieldReturn(item);
         }
         
         source.Complete();
 
-        await source.YieldReturn(yieldedAfterComplete);
+        source.YieldReturn(yieldedAfterComplete);
         
         var result = await task;
 

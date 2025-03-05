@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 
 namespace AsyncEnumerableSource;
@@ -14,44 +15,25 @@ public abstract class AsyncEnumerableSource
 
 public sealed class AsyncEnumerableSource<T> : AsyncEnumerableSource
 {
-    private readonly List<Channel<T>> _channels = [];
+    private readonly ConcurrentDictionary<Channel<T>, byte> _channels = [];
     private bool _completed;
     private Exception? _exception;
-    private readonly ReaderWriterLockSlim _lock = new();
 
     public async IAsyncEnumerable<T> GetAsyncEnumerable(
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        Channel<T> channel;
-        
-        _lock.EnterUpgradeableReadLock();
-        try
+        if (_exception != null)
         {
-            if (_exception != null)
-            {
-                throw _exception;
-            }
-
-            if (_completed)
-            {
-                yield break;
-            }
-
-            _lock.EnterWriteLock();
-            try
-            {
-                channel = Channel.CreateUnbounded<T>(ChannelOptions);
-                _channels.Add(channel);
-            }
-            finally
-            {
-                _lock.ExitWriteLock();
-            }
+            throw _exception;
         }
-        finally
+
+        if (_completed)
         {
-            _lock.ExitUpgradeableReadLock();
+            yield break;
         }
+
+        var channel = Channel.CreateUnbounded<T>(ChannelOptions);
+        _channels[channel] = 0; 
         
         try
         {
@@ -68,103 +50,42 @@ public sealed class AsyncEnumerableSource<T> : AsyncEnumerableSource
         }
         finally
         {
-            _lock.EnterWriteLock();
-            try
-            {
-                _channels.Remove(channel);
-            }
-            finally
-            {
-                _lock.ExitWriteLock();
-            }
+            _channels.TryRemove(channel, out _);
         }
     }
 
-    public async Task YieldReturn(T value)
+    public void YieldReturn(T value)
     {
-        List<Channel<T>> channelsSnapshot;
-        
-        _lock.EnterReadLock();
-        try
+        if (_completed)
         {
-            if (_completed)
-            {
-                return;
-            }
-
-            channelsSnapshot = [.._channels];
-        }
-        finally
-        {
-            _lock.ExitReadLock();
+            return;
         }
 
-        var writeTasks = channelsSnapshot
-            .Select(channel => Task.Run(() => { channel.Writer.TryWrite(value); }));
-        
-        await Task.WhenAll(writeTasks).ConfigureAwait(false);
+        Parallel.ForEach(_channels.Keys, channel => channel.Writer.TryWrite(value));
     }
 
     public void Complete()
     {
-        _lock.EnterUpgradeableReadLock();
-        try
+        if (Interlocked.CompareExchange(ref _completed, true, false))
         {
-            if (_completed)
-            {
-                return;
-            }
-            
-            foreach (var channel in _channels)
-            {
-                channel.Writer.TryComplete();
-            }
-            
-            _lock.EnterWriteLock();
-            try
-            {
-                _completed = true;
-            }
-            finally
-            {
-                _lock.ExitWriteLock();
-            }
+            return;
         }
-        finally
-        {
-            _lock.ExitUpgradeableReadLock();
-        }
+
+        Parallel.ForEach(_channels.Keys, channel => channel.Writer.TryComplete());
     }
 
     public void Fault(Exception error)
     {
-        _lock.EnterUpgradeableReadLock();
-        try
+        if (Interlocked.CompareExchange(ref _exception, error, null) != null)
         {
-            if (_completed)
-            {
-                return;
-            }
-            
-            foreach (var channel in _channels)
-            {
-                channel.Writer.TryComplete(error);
-            }
-            
-            _lock.EnterWriteLock();
-            try
-            {
-                _completed = true;
-                _exception = error;
-            }
-            finally
-            {
-                _lock.ExitWriteLock();
-            }
+            return;
         }
-        finally
+        
+        if (Interlocked.CompareExchange(ref _completed, true, false))
         {
-            _lock.ExitUpgradeableReadLock();
+            return;
         }
+
+        Parallel.ForEach(_channels.Keys, channel => channel.Writer.TryComplete(error));
     }
 }
