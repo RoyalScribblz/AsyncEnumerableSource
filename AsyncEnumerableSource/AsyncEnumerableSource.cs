@@ -1,5 +1,4 @@
-﻿using System.Collections.Concurrent;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 
 namespace AsyncEnumerableSource;
@@ -15,7 +14,8 @@ public abstract class AsyncEnumerableSource
 
 public sealed class AsyncEnumerableSource<T> : AsyncEnumerableSource
 {
-    private readonly ConcurrentDictionary<Channel<T>, byte> _channels = [];
+    private readonly List<Channel<T>> _channels = [];
+    private readonly ReaderWriterLockSlim _lock = new();
     private bool _completed;
     private Exception? _exception;
 
@@ -33,7 +33,16 @@ public sealed class AsyncEnumerableSource<T> : AsyncEnumerableSource
         }
 
         var channel = Channel.CreateUnbounded<T>(ChannelOptions);
-        _channels[channel] = 0; 
+        
+        _lock.EnterWriteLock();
+        try
+        {
+            _channels.Add(channel);
+        }
+        finally
+        {
+            _lock.ExitWriteLock();
+        }
         
         try
         {
@@ -50,7 +59,15 @@ public sealed class AsyncEnumerableSource<T> : AsyncEnumerableSource
         }
         finally
         {
-            _channels.TryRemove(channel, out _);
+            _lock.EnterWriteLock();
+            try
+            {
+                _channels.Remove(channel);
+            }
+            finally
+            {
+                _lock.ExitWriteLock();
+            }
         }
     }
 
@@ -61,7 +78,28 @@ public sealed class AsyncEnumerableSource<T> : AsyncEnumerableSource
             return;
         }
 
-        Parallel.ForEach(_channels.Keys, channel => channel.Writer.TryWrite(value));
+        List<Channel<T>> channelsSnapshot;
+        _lock.EnterReadLock();
+        try
+        {
+            channelsSnapshot = [.._channels];
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
+        
+        if (channelsSnapshot.Count >= 50)
+        {
+            Parallel.ForEach(channelsSnapshot, channel => channel.Writer.TryWrite(value));
+        }
+        else
+        {
+            foreach (var channelsKey in channelsSnapshot)
+            {
+                channelsKey.Writer.TryWrite(value);
+            }
+        }
     }
 
     public void Complete()
@@ -71,7 +109,28 @@ public sealed class AsyncEnumerableSource<T> : AsyncEnumerableSource
             return;
         }
 
-        Parallel.ForEach(_channels.Keys, channel => channel.Writer.TryComplete());
+        List<Channel<T>> channelsSnapshot;
+        _lock.EnterReadLock();
+        try
+        {
+            channelsSnapshot = [.._channels];
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
+        
+        if (_channels.Count >= 50)
+        {
+            Parallel.ForEach(channelsSnapshot, channel => channel.Writer.TryComplete());
+        }
+        else
+        {
+            foreach (var channelsKey in channelsSnapshot)
+            {
+                channelsKey.Writer.TryComplete();
+            }
+        }
     }
 
     public void Fault(Exception error)
@@ -85,7 +144,28 @@ public sealed class AsyncEnumerableSource<T> : AsyncEnumerableSource
         {
             return;
         }
+        
+        List<Channel<T>> channelsSnapshot;
+        _lock.EnterReadLock();
+        try
+        {
+            channelsSnapshot = [.._channels];
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
 
-        Parallel.ForEach(_channels.Keys, channel => channel.Writer.TryComplete(error));
+        if (_channels.Count >= 50)
+        {
+            Parallel.ForEach(channelsSnapshot, channel => channel.Writer.TryComplete(error));
+        }
+        else
+        {
+            foreach (var channelsKey in channelsSnapshot)
+            {
+                channelsKey.Writer.TryComplete(error);
+            }
+        }
     }
 }
