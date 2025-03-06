@@ -4,6 +4,18 @@
         <TargetFramework>net9.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        
+        <PackageId>AsyncEnumerableSource</PackageId>
+        <Version>0.0.1</Version>
+        <Authors>James Lloyd</Authors>
+        <RepositoryUrl>https://github.com/RoyalScribblz/AsyncEnumerableSource</RepositoryUrl>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageTags>Async Enumerable Channels Threading</PackageTags>
+        <Description>A high-performance, thread-safe async enumerable source.</Description>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <IncludeSymbols>true</IncludeSymbols>
+        <IncludeSource>true</IncludeSource>
+        
     </PropertyGroup>
 
 </Project>
