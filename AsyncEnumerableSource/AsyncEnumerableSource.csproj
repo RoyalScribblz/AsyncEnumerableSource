@@ -9,13 +9,17 @@
         <Version>0.0.1</Version>
         <Authors>James Lloyd</Authors>
         <RepositoryUrl>https://github.com/RoyalScribblz/AsyncEnumerableSource</RepositoryUrl>
+        <Copyright>MIT</Copyright>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageTags>Async Enumerable Channels Threading</PackageTags>
         <Description>A high-performance, thread-safe async enumerable source.</Description>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <IncludeSymbols>true</IncludeSymbols>
-        <IncludeSource>true</IncludeSource>
-        
+        <IncludeSource>true</IncludeSource>        
     </PropertyGroup>
+    
+    <ItemGroup>
+        <None Include="..\README.md" Pack="true" PackagePath="" />
+    </ItemGroup>
 
 </Project>
