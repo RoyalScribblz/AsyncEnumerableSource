@@ -37,15 +37,15 @@ public sealed class AsyncEnumerableSource<T> : AsyncEnumerableSource
         
         try
         {
-            // https://stackoverflow.com/questions/67569758/channelreader-readallasynccancellationtoken-not-actually-cancelled-mid-iterati
-            await foreach (var item in channel.Reader.ReadAllAsync(CancellationToken.None).WithCancellation(cancellationToken).ConfigureAwait(false))
+            // https://learn.microsoft.com/en-us/dotnet/api/system.threading.channels.channelreader-1.readallasync?view=net-9.0#parameters
+            await foreach (var item in channel.Reader.ReadAllAsync(CancellationToken.None).ConfigureAwait(false))
             {
-                yield return item;
-                
                 if (cancellationToken.IsCancellationRequested)
                 {
                     yield break;
                 }
+                
+                yield return item;
             }
         }
         finally
@@ -66,7 +66,7 @@ public sealed class AsyncEnumerableSource<T> : AsyncEnumerableSource
 
     public void Complete()
     {
-        if (Interlocked.CompareExchange(ref _completed, true, false))
+        if (Interlocked.Exchange(ref _completed, true))
         {
             return;
         }
@@ -80,8 +80,8 @@ public sealed class AsyncEnumerableSource<T> : AsyncEnumerableSource
         {
             return;
         }
-        
-        if (Interlocked.CompareExchange(ref _completed, true, false))
+
+        if (Interlocked.Exchange(ref _completed, true))
         {
             return;
         }
