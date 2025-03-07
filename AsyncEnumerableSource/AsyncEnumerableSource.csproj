@@ -6,7 +6,7 @@
         <Nullable>enable</Nullable>
         
         <PackageId>AsyncEnumerableSource</PackageId>
-        <Version>1.0.1</Version>
+        <Version>1.0.2</Version>
         <Authors>James Lloyd</Authors>
         <RepositoryUrl>https://github.com/RoyalScribblz/AsyncEnumerableSource</RepositoryUrl>
         <Copyright>MIT</Copyright>
@@ -14,8 +14,6 @@
         <PackageTags>Async Enumerable Channels Threading</PackageTags>
         <Description>A high-performance, thread-safe async enumerable source.</Description>
         <PackageReadmeFile>README.md</PackageReadmeFile>
-        <IncludeSymbols>true</IncludeSymbols>
-        <IncludeSource>true</IncludeSource>        
     </PropertyGroup>
     
     <ItemGroup>
