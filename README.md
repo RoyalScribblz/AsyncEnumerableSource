@@ -1,8 +1,8 @@
 ﻿# AsyncEnumerableSource
 
-![.NET](https://img.shields.io/badge/.NET-9.0-512BD4)
+![.NET](https://img.shields.io/badge/Targets-.NET%209,%20.NET%208,%20.NET%206,%20netstandard%202.1-5937cf)
 ![language](https://img.shields.io/badge/language-C%23-239120)
-![OS](https://img.shields.io/badge/OS-linux%2C%20macOS%2C%20windows-0078D4)
+![OS](https://img.shields.io/badge/OS-Linux%2C%20macOS%2C%20Windows-0078D4)
 ![GitHub last commit](https://img.shields.io/github/last-commit/RoyalScribblz/AsyncEnumerableSource)
 
 ## Overview
