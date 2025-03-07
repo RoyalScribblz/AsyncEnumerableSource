@@ -14,7 +14,7 @@ public class AsyncEnumerableSourceBenchmarks
 
         foreach (var item in Data)
         {
-            source.YieldReturn(item);
+            await source.YieldReturn(item);
         }
         
         source.Complete();
@@ -34,7 +34,7 @@ public class AsyncEnumerableSourceBenchmarks
         
         foreach (var item in Data)
         {
-            source.YieldReturn(item);
+            await source.YieldReturn(item);
         }
         
         source.Complete();
@@ -62,14 +62,14 @@ public class AsyncEnumerableSourceBenchmarks
         
         foreach (var item in Data.Take(500))
         {
-            source.YieldReturn(item);
+            await source.YieldReturn(item);
         }
         
         await cts.CancelAsync();
         
         foreach (var item in Data.Skip(500))
         {
-            source.YieldReturn(item);
+            await source.YieldReturn(item);
         }
         
         source.Complete();
@@ -101,7 +101,7 @@ public class AsyncEnumerableSourceBenchmarks
         
         foreach (var item in Data.Take(500)) // Half the dataset
         {
-            source.YieldReturn(item);
+            await source.YieldReturn(item);
         }
         
         source.Fault(new Exception("Benchmark Exception"));
