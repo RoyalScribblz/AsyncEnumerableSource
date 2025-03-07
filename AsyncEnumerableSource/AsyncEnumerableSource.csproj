@@ -4,7 +4,7 @@
         <TargetFrameworks>net9.0;net8.0;net6.0;netstandard2.1</TargetFrameworks>
         
         <PackageId>AsyncEnumerableSource</PackageId>
-        <Version>1.0.4</Version>
+        <Version>1.1.0</Version>
         <Authors>James Lloyd</Authors>
         <RepositoryUrl>https://github.com/RoyalScribblz/AsyncEnumerableSource</RepositoryUrl>
         <Copyright>MIT</Copyright>
