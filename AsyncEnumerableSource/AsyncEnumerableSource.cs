@@ -1,6 +1,10 @@
 ﻿using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+#if NET6_0_OR_GREATER
+using System.Runtime.InteropServices;
+#endif
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -84,26 +88,57 @@ namespace AsyncEnumerableSource
                 return;
             }
 
-            List<Channel<T>> channelsSnapshot;
+            Channel<T>[] channelsSnapshot;
+            int count;
+
             _lock.EnterReadLock();
             try
             {
-                channelsSnapshot = new List<Channel<T>>(_channels);
+                count = _channels.Count;
+                
+                if (count == 0)
+                {
+                    return;
+                }
+
+                channelsSnapshot = ArrayPool<Channel<T>>.Shared.Rent(count);
+#if NET6_0_OR_GREATER
+                if (count <= 5000)
+                {
+                    CollectionsMarshal.AsSpan(_channels).CopyTo(channelsSnapshot);
+                }
+                else
+                {
+                    _channels.CopyTo(channelsSnapshot);
+                }
+#else
+                _channels.CopyTo(channelsSnapshot);
+#endif
             }
             finally
             {
                 _lock.ExitReadLock();
             }
-        
-            if (channelsSnapshot.Count >= 50)
+
+            try
             {
-                Parallel.ForEach(channelsSnapshot, channel => channel.Writer.TryWrite(value));
-            }
-            else
-            {
-                foreach (var channelsKey in channelsSnapshot)
+                if (count >= 50)
                 {
-                    channelsKey.Writer.TryWrite(value);
+                    Parallel.For(0, count, index => channelsSnapshot[index].Writer.TryWrite(value));
+                }
+                else
+                {
+                    foreach (var channel in channelsSnapshot.AsSpan(0, count))
+                    {
+                        channel.Writer.TryWrite(value);
+                    }
+                }
+            }
+            finally
+            {
+                if (channelsSnapshot != null)
+                {
+                    ArrayPool<Channel<T>>.Shared.Return(channelsSnapshot);
                 }
             }
         }
@@ -115,26 +150,56 @@ namespace AsyncEnumerableSource
                 return;
             }
 
-            List<Channel<T>> channelsSnapshot;
+            Channel<T>[] channelsSnapshot;
+            int count;
+
             _lock.EnterReadLock();
             try
             {
-                channelsSnapshot = new List<Channel<T>>(_channels);
+                count = _channels.Count;
+                if (count == 0)
+                {
+                    return;
+                }
+
+                channelsSnapshot = ArrayPool<Channel<T>>.Shared.Rent(count);
+#if NET6_0_OR_GREATER
+                if (count <= 5000)
+                {
+                    CollectionsMarshal.AsSpan(_channels).CopyTo(channelsSnapshot);
+                }
+                else
+                {
+                    _channels.CopyTo(channelsSnapshot);
+                }
+#else
+                _channels.CopyTo(channelsSnapshot);
+#endif
             }
             finally
             {
                 _lock.ExitReadLock();
             }
-        
-            if (_channels.Count >= 50)
+
+            try
             {
-                Parallel.ForEach(channelsSnapshot, channel => channel.Writer.TryComplete());
-            }
-            else
-            {
-                foreach (var channelsKey in channelsSnapshot)
+                if (count >= 50)
                 {
-                    channelsKey.Writer.TryComplete();
+                    Parallel.For(0, count, index => channelsSnapshot[index].Writer.TryComplete());
+                }
+                else
+                {
+                    foreach (var channel in channelsSnapshot.AsSpan(0, count))
+                    {
+                        channel.Writer.TryComplete();
+                    }
+                }
+            }
+            finally
+            {
+                if (channelsSnapshot != null)
+                {
+                    ArrayPool<Channel<T>>.Shared.Return(channelsSnapshot);
                 }
             }
         }
@@ -150,27 +215,57 @@ namespace AsyncEnumerableSource
             {
                 return;
             }
-        
-            List<Channel<T>> channelsSnapshot;
+
+            Channel<T>[] channelsSnapshot;
+            int count;
+
             _lock.EnterReadLock();
             try
             {
-                channelsSnapshot = new List<Channel<T>>(_channels);
+                count = _channels.Count;
+                if (count == 0)
+                {
+                    return;
+                }
+
+                channelsSnapshot = ArrayPool<Channel<T>>.Shared.Rent(count);
+#if NET6_0_OR_GREATER
+                if (count <= 5000)
+                {
+                    CollectionsMarshal.AsSpan(_channels).CopyTo(channelsSnapshot);
+                }
+                else
+                {
+                    _channels.CopyTo(channelsSnapshot);
+                }
+#else
+                _channels.CopyTo(channelsSnapshot);
+#endif
             }
             finally
             {
                 _lock.ExitReadLock();
             }
 
-            if (_channels.Count >= 50)
+            try
             {
-                Parallel.ForEach(channelsSnapshot, channel => channel.Writer.TryComplete(error));
-            }
-            else
-            {
-                foreach (var channelsKey in channelsSnapshot)
+                if (count >= 50)
                 {
-                    channelsKey.Writer.TryComplete(error);
+                    Parallel.For(0, count, index => channelsSnapshot[index].Writer.TryComplete(error));
+                }
+                else
+                {
+                    for (var index = 0; index < count; index++)
+                    {
+                        channelsSnapshot[index].Writer.TryComplete(error);
+                    }
+                }
+            }
+            finally
+            {
+                if (channelsSnapshot != null)
+                {
+                    ArrayPool<Channel<T>>.Shared.Return(channelsSnapshot);
                 }
             }
         }
