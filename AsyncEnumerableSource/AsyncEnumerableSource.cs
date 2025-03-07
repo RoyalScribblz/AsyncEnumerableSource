@@ -128,9 +128,9 @@ namespace AsyncEnumerableSource
                 }
                 else
                 {
-                    foreach (var channel in channelsSnapshot.AsSpan(0, count))
+                    for (var index = 0; index < count; index++)
                     {
-                        channel.Writer.TryWrite(value);
+                        channelsSnapshot[index].Writer.TryWrite(value);
                     }
                 }
             }
@@ -189,9 +189,9 @@ namespace AsyncEnumerableSource
                 }
                 else
                 {
-                    foreach (var channel in channelsSnapshot.AsSpan(0, count))
+                    for (var index = 0; index < count; index++)
                     {
-                        channel.Writer.TryComplete();
+                        channelsSnapshot[index].Writer.TryComplete();
                     }
                 }
             }
