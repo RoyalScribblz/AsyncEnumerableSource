@@ -13,21 +13,34 @@ namespace AsyncEnumerableSource
 {
     public abstract class AsyncEnumerableSource
     {
-        protected static readonly UnboundedChannelOptions ChannelOptions = new UnboundedChannelOptions()
+        protected static readonly UnboundedChannelOptions UnboundedChannelOptions = new UnboundedChannelOptions
         {
             SingleWriter = true,
             SingleReader = true,
         };
+        
+        protected static BoundedChannelOptions BoundedChannelOptions(int capacity) => new BoundedChannelOptions(capacity)
+        {
+            SingleWriter = true,
+            SingleReader = true,
+            FullMode = BoundedChannelFullMode.Wait,
+        };
     }
 
-    public sealed class AsyncEnumerableSource<T> : AsyncEnumerableSource
+    public sealed class AsyncEnumerableSource<T> : AsyncEnumerableSource, IDisposable
     {
         private readonly List<Channel<T>> _channels = new List<Channel<T>>();
         private readonly ReaderWriterLockSlim _lock = new ReaderWriterLockSlim();
         private int _completed;
         private Exception _exception;
+        private readonly int? _boundedCapacity;
         
         private const int True = 1;
+        
+        public AsyncEnumerableSource(int? boundedCapacity = null)
+        {
+            _boundedCapacity = boundedCapacity;
+        }
         
         public async IAsyncEnumerable<T> GetAsyncEnumerable(
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -42,7 +55,9 @@ namespace AsyncEnumerableSource
                 yield break;
             }
 
-            var channel = Channel.CreateUnbounded<T>(ChannelOptions);
+            var channel = _boundedCapacity.HasValue
+                ? Channel.CreateBounded<T>(BoundedChannelOptions(_boundedCapacity.Value))
+                : Channel.CreateUnbounded<T>(UnboundedChannelOptions);
         
             _lock.EnterWriteLock();
             try
@@ -81,7 +96,7 @@ namespace AsyncEnumerableSource
             }
         }
 
-        public void YieldReturn(T value)
+        public async ValueTask YieldReturn(T value)
         {
             if (_completed == True)
             {
@@ -89,21 +104,21 @@ namespace AsyncEnumerableSource
             }
 
             Channel<T>[] channelsSnapshot;
-            int count;
+            int consumerCount;
 
             _lock.EnterReadLock();
             try
             {
-                count = _channels.Count;
+                consumerCount = _channels.Count;
                 
-                if (count == 0)
+                if (consumerCount == 0)
                 {
                     return;
                 }
 
-                channelsSnapshot = ArrayPool<Channel<T>>.Shared.Rent(count);
+                channelsSnapshot = ArrayPool<Channel<T>>.Shared.Rent(consumerCount);
 #if NET6_0_OR_GREATER
-                if (count <= 5000)
+                if (consumerCount <= 5000)
                 {
                     CollectionsMarshal.AsSpan(_channels).CopyTo(channelsSnapshot);
                 }
@@ -122,17 +137,38 @@ namespace AsyncEnumerableSource
 
             try
             {
-                if (count >= 50)
+                if (consumerCount >= 10 && _boundedCapacity.HasValue)
                 {
-                    Parallel.For(0, count, index => channelsSnapshot[index].Writer.TryWrite(value));
+                    var tasks = new Task[consumerCount];
+                    for (var index = 0; index < consumerCount; index++)
+                    {
+                        tasks[index] = channelsSnapshot[index].Writer.WriteAsync(value).AsTask();
+                    }
+
+                    await Task.WhenAll(tasks);
+                }
+#if NET8_0_OR_GREATER
+                else if (consumerCount >= 50)
+                {
+                    await Parallel.ForAsync(0, consumerCount,
+                        async (index, ct) => await channelsSnapshot[index].Writer.WriteAsync(value, ct));
                 }
                 else
                 {
-                    for (var index = 0; index < count; index++)
+                    for (var index = 0; index < consumerCount; index++)
                     {
-                        channelsSnapshot[index].Writer.TryWrite(value);
+                        await channelsSnapshot[index].Writer.WriteAsync(value);
                     }
                 }
+#else
+                else
+                {
+                    for (var index = 0; index < consumerCount; index++)
+                    {
+                        await channelsSnapshot[index].Writer.WriteAsync(value);
+                    }
+                }
+#endif
             }
             finally
             {
@@ -151,20 +187,20 @@ namespace AsyncEnumerableSource
             }
 
             Channel<T>[] channelsSnapshot;
-            int count;
+            int consumerCount;
 
             _lock.EnterReadLock();
             try
             {
-                count = _channels.Count;
-                if (count == 0)
+                consumerCount = _channels.Count;
+                if (consumerCount == 0)
                 {
                     return;
                 }
 
-                channelsSnapshot = ArrayPool<Channel<T>>.Shared.Rent(count);
+                channelsSnapshot = ArrayPool<Channel<T>>.Shared.Rent(consumerCount);
 #if NET6_0_OR_GREATER
-                if (count <= 5000)
+                if (consumerCount <= 5000)
                 {
                     CollectionsMarshal.AsSpan(_channels).CopyTo(channelsSnapshot);
                 }
@@ -183,15 +219,15 @@ namespace AsyncEnumerableSource
 
             try
             {
-                if (count >= 50)
+                if (consumerCount >= 50)
                 {
-                    Parallel.For(0, count, index => channelsSnapshot[index].Writer.TryComplete());
+                    Parallel.For(0, consumerCount, index => channelsSnapshot[index].Writer.Complete());
                 }
                 else
                 {
-                    for (var index = 0; index < count; index++)
+                    for (var index = 0; index < consumerCount; index++)
                     {
-                        channelsSnapshot[index].Writer.TryComplete();
+                        channelsSnapshot[index].Writer.Complete();
                     }
                 }
             }
@@ -217,20 +253,20 @@ namespace AsyncEnumerableSource
             }
 
             Channel<T>[] channelsSnapshot;
-            int count;
+            int consumerCount;
 
             _lock.EnterReadLock();
             try
             {
-                count = _channels.Count;
-                if (count == 0)
+                consumerCount = _channels.Count;
+                if (consumerCount == 0)
                 {
                     return;
                 }
 
-                channelsSnapshot = ArrayPool<Channel<T>>.Shared.Rent(count);
+                channelsSnapshot = ArrayPool<Channel<T>>.Shared.Rent(consumerCount);
 #if NET6_0_OR_GREATER
-                if (count <= 5000)
+                if (consumerCount <= 5000)
                 {
                     CollectionsMarshal.AsSpan(_channels).CopyTo(channelsSnapshot);
                 }
@@ -249,15 +285,15 @@ namespace AsyncEnumerableSource
 
             try
             {
-                if (count >= 50)
+                if (consumerCount >= 50)
                 {
-                    Parallel.For(0, count, index => channelsSnapshot[index].Writer.TryComplete(error));
+                    Parallel.For(0, consumerCount, index => channelsSnapshot[index].Writer.Complete(error));
                 }
                 else
                 {
-                    for (var index = 0; index < count; index++)
+                    for (var index = 0; index < consumerCount; index++)
                     {
-                        channelsSnapshot[index].Writer.TryComplete(error);
+                        channelsSnapshot[index].Writer.Complete(error);
                     }
                 }
             }
@@ -268,6 +304,11 @@ namespace AsyncEnumerableSource
                     ArrayPool<Channel<T>>.Shared.Return(channelsSnapshot);
                 }
             }
+        }
+
+        public void Dispose()
+        {
+            _lock?.Dispose();
         }
     }
 }
