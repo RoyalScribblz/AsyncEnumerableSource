@@ -27,7 +27,7 @@ namespace AsyncEnumerableSource
         };
     }
 
-    public sealed class AsyncEnumerableSource<T> : AsyncEnumerableSource
+    public sealed class AsyncEnumerableSource<T> : AsyncEnumerableSource, IDisposable
     {
         private readonly List<Channel<T>> _channels = new List<Channel<T>>();
         private readonly ReaderWriterLockSlim _lock = new ReaderWriterLockSlim();
@@ -96,7 +96,7 @@ namespace AsyncEnumerableSource
             }
         }
 
-        public async Task YieldReturn(T value)
+        public async ValueTask YieldReturn(T value)
         {
             if (_completed == True)
             {
@@ -137,8 +137,18 @@ namespace AsyncEnumerableSource
 
             try
             {
+                if (consumerCount >= 10 && _boundedCapacity.HasValue)
+                {
+                    var tasks = new Task[consumerCount];
+                    for (var index = 0; index < consumerCount; index++)
+                    {
+                        tasks[index] = channelsSnapshot[index].Writer.WriteAsync(value).AsTask();
+                    }
+
+                    await Task.WhenAll(tasks);
+                }
 #if NET8_0_OR_GREATER
-                if (consumerCount >= 50)
+                else if (consumerCount >= 50)
                 {
                     await Parallel.ForAsync(0, consumerCount,
                         async (index, ct) => await channelsSnapshot[index].Writer.WriteAsync(value, ct));
@@ -151,9 +161,12 @@ namespace AsyncEnumerableSource
                     }
                 }
 #else
-                for (var index = 0; index < consumerCount; index++)
+                else
                 {
-                    await channelsSnapshot[index].Writer.WriteAsync(value);
+                    for (var index = 0; index < consumerCount; index++)
+                    {
+                        await channelsSnapshot[index].Writer.WriteAsync(value);
+                    }
                 }
 #endif
             }
@@ -291,6 +304,11 @@ namespace AsyncEnumerableSource
                     ArrayPool<Channel<T>>.Shared.Return(channelsSnapshot);
                 }
             }
+        }
+
+        public void Dispose()
+        {
+            _lock?.Dispose();
         }
     }
 }
