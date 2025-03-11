@@ -11,14 +11,25 @@ using System.Threading.Tasks;
 
 namespace AsyncEnumerableSource
 {
+    /// <summary>
+    /// Base class for providing channel option statics for bounded and unbounded channels.
+    /// </summary>
     public abstract class AsyncEnumerableSource
     {
+        /// <summary>
+        /// Defines the options for an unbounded channel.
+        /// </summary>
         protected static readonly UnboundedChannelOptions UnboundedChannelOptions = new UnboundedChannelOptions
         {
             SingleWriter = true,
             SingleReader = true,
         };
         
+        /// <summary>
+        /// Creates options for a bounded channel with the specified capacity.
+        /// </summary>
+        /// <param name="capacity">The maximum number of items in the channel.</param>
+        /// <returns>A configured <see cref="System.Threading.Channels.BoundedChannelOptions"/> instance.</returns>
         protected static BoundedChannelOptions BoundedChannelOptions(int capacity) => new BoundedChannelOptions(capacity)
         {
             SingleWriter = true,
@@ -27,21 +38,75 @@ namespace AsyncEnumerableSource
         };
     }
 
+    /// <summary>
+    /// Provides an <see cref="AsyncEnumerableSource{T}"/> that supports multiple consumers of the same data.
+    /// </summary>
     public sealed class AsyncEnumerableSource<T> : AsyncEnumerableSource, IDisposable
     {
+        /// <summary>
+        /// List of channels for distributing data to consumers.
+        /// </summary>
         private readonly List<Channel<T>> _channels = new List<Channel<T>>();
+        
+        /// <summary>
+        /// Lock for synchronising access to <see cref="_channels"/>.
+        /// </summary>
         private readonly ReaderWriterLockSlim _lock = new ReaderWriterLockSlim();
+        
+        /// <summary>
+        /// Indicates whether the source has been completed.
+        /// Type of integer due to .NETStandard2.1's inability to use Interlocked.Exchange on boolean values.
+        /// </summary>
         private int _completed;
+        
+        /// <summary>
+        /// Stores the exception set by <see cref="Fault"/>
+        /// </summary>
         private Exception _exception;
+        
+        /// <summary>
+        /// Optional bounded capacity for the channel.
+        /// </summary>
         private readonly int? _boundedCapacity;
+
+        #region Constants
         
+        /// <summary>
+        /// Constant representing <c>true</c> as an integer value.
+        /// </summary>
         private const int True = 1;
+
+        /// <summary>
+        /// Threshold at which <c>CollectionsMarshal.AsSpan().CopyTo()</c> becomes slower than <c>.CopyTo()</c>.
+        /// </summary>
+        private const int AsSpanCopyToThreshold = 5000;
         
+        /// <summary>
+        /// Threshold at which <c>await Task.WhenAll()</c> becomes faster than <c>Parallel.ForEach()</c> and <c>foreach</c> when the channels are bounded.
+        /// </summary>
+        private const int WhenAllBoundedThreshold = 10;
+
+        /// <summary>
+        /// Threshold at which <see cref="Parallel"/> methods become faster than <c>for</c> and <c>foreach</c> for <see cref="Channel{T}"/> writes.
+        /// </summary>
+        private const int ParallelWriteThreshold = 50;
+        
+        #endregion
+        
+        /// <summary>
+        /// Initializes a new instance of <see cref="AsyncEnumerableSource{T}"/>.
+        /// </summary>
+        /// <param name="boundedCapacity">Optional bounded capacity for the channels.</param>
         public AsyncEnumerableSource(int? boundedCapacity = null)
         {
             _boundedCapacity = boundedCapacity;
         }
         
+        /// <summary>
+        /// Gets an asynchronous enumerable to consume the source asynchronously.
+        /// </summary>
+        /// <param name="cancellationToken">Token to cancel the enumeration.</param>
+        /// <returns>An asynchronous sequence of values yielded by the source.</returns>
         public async IAsyncEnumerable<T> GetAsyncEnumerable(
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
@@ -96,6 +161,10 @@ namespace AsyncEnumerableSource
             }
         }
 
+        /// <summary>
+        /// Yields a value to all consumers of the <see cref="AsyncEnumerableSource{T}"/>.
+        /// </summary>
+        /// <param name="value">The value to yield.</param>
         public async ValueTask YieldReturn(T value)
         {
             if (_completed == True)
@@ -118,7 +187,7 @@ namespace AsyncEnumerableSource
 
                 channelsSnapshot = ArrayPool<Channel<T>>.Shared.Rent(consumerCount);
 #if NET6_0_OR_GREATER
-                if (consumerCount <= 5000)
+                if (consumerCount <= AsSpanCopyToThreshold)
                 {
                     CollectionsMarshal.AsSpan(_channels).CopyTo(channelsSnapshot);
                 }
@@ -137,7 +206,7 @@ namespace AsyncEnumerableSource
 
             try
             {
-                if (consumerCount >= 10 && _boundedCapacity.HasValue)
+                if (consumerCount >= WhenAllBoundedThreshold && _boundedCapacity.HasValue)
                 {
                     var tasks = new Task[consumerCount];
                     for (var index = 0; index < consumerCount; index++)
@@ -148,7 +217,7 @@ namespace AsyncEnumerableSource
                     await Task.WhenAll(tasks);
                 }
 #if NET8_0_OR_GREATER
-                else if (consumerCount >= 50)
+                else if (consumerCount >= ParallelWriteThreshold)
                 {
                     await Parallel.ForAsync(0, consumerCount,
                         async (index, ct) => await channelsSnapshot[index].Writer.WriteAsync(value, ct));
@@ -179,6 +248,9 @@ namespace AsyncEnumerableSource
             }
         }
 
+        /// <summary>
+        /// Marks the source as complete and completes all channels.
+        /// </summary>
         public void Complete()
         {
             if (Interlocked.Exchange(ref _completed, True) == True)
@@ -200,7 +272,7 @@ namespace AsyncEnumerableSource
 
                 channelsSnapshot = ArrayPool<Channel<T>>.Shared.Rent(consumerCount);
 #if NET6_0_OR_GREATER
-                if (consumerCount <= 5000)
+                if (consumerCount <= AsSpanCopyToThreshold)
                 {
                     CollectionsMarshal.AsSpan(_channels).CopyTo(channelsSnapshot);
                 }
@@ -219,7 +291,7 @@ namespace AsyncEnumerableSource
 
             try
             {
-                if (consumerCount >= 50)
+                if (consumerCount >= ParallelWriteThreshold)
                 {
                     Parallel.For(0, consumerCount, index => channelsSnapshot[index].Writer.Complete());
                 }
@@ -240,6 +312,10 @@ namespace AsyncEnumerableSource
             }
         }
 
+        /// <summary>
+        /// Marks the source as faulted and propagates an error to all consumers.
+        /// </summary>
+        /// <param name="error">The exception to propagate.</param>
         public void Fault(Exception error)
         {
             if (Interlocked.CompareExchange(ref _exception, error, null) != null)
@@ -266,7 +342,7 @@ namespace AsyncEnumerableSource
 
                 channelsSnapshot = ArrayPool<Channel<T>>.Shared.Rent(consumerCount);
 #if NET6_0_OR_GREATER
-                if (consumerCount <= 5000)
+                if (consumerCount <= AsSpanCopyToThreshold)
                 {
                     CollectionsMarshal.AsSpan(_channels).CopyTo(channelsSnapshot);
                 }
@@ -285,7 +361,7 @@ namespace AsyncEnumerableSource
 
             try
             {
-                if (consumerCount >= 50)
+                if (consumerCount >= ParallelWriteThreshold)
                 {
                     Parallel.For(0, consumerCount, index => channelsSnapshot[index].Writer.Complete(error));
                 }
@@ -306,6 +382,9 @@ namespace AsyncEnumerableSource
             }
         }
 
+        /// <summary>
+        /// Releases all resources used by this instance.
+        /// </summary>
         public void Dispose()
         {
             _lock?.Dispose();
