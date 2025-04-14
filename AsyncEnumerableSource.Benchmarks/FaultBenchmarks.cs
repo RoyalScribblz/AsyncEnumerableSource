@@ -1,4 +1,4 @@
-﻿namespace AsyncEnumerableSource.Benchmarks;
+﻿namespace JLloyd.AsyncSources.Benchmarks;
 
 [MemoryDiagnoser]
 [MarkdownExporterAttribute.GitHub]

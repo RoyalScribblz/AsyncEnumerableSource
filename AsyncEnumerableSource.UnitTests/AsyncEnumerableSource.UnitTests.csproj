@@ -5,6 +5,8 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <IsPackable>false</IsPackable>
+        
+        <RootNamespace>JLloyd.AsyncSources.UnitTests</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>

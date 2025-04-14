@@ -2,9 +2,10 @@
 
     <PropertyGroup>
         <TargetFrameworks>net9.0;net8.0;net6.0;netstandard2.1</TargetFrameworks>
+        <RootNamespace>JLloyd.AsyncSources</RootNamespace>
         
         <PackageId>AsyncEnumerableSource</PackageId>
-        <Version>1.1.1</Version>
+        <Version>1.2.0</Version>
         <Authors>James Lloyd</Authors>
         <RepositoryUrl>https://github.com/RoyalScribblz/AsyncEnumerableSource</RepositoryUrl>
         <Copyright>MIT</Copyright>

@@ -2,14 +2,14 @@
 using System.Buffers;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-#if NET6_0_OR_GREATER
 using System.Runtime.InteropServices;
-#endif
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+#if NET6_0_OR_GREATER
+#endif
 
-namespace AsyncEnumerableSource
+namespace JLloyd.AsyncSources
 {
     /// <summary>
     /// Base class for providing channel option statics for bounded and unbounded channels.

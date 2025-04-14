@@ -6,6 +6,8 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <IsPackable>false</IsPackable>
+
+        <RootNamespace>JLloyd.AsyncSources.Benchmarks</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>

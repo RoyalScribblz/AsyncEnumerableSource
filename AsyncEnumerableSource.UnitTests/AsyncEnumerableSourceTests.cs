@@ -1,4 +1,4 @@
-namespace AsyncEnumerableSource.UnitTests;
+namespace JLloyd.AsyncSources.UnitTests;
 
 public sealed class AsyncEnumerableSourceTests
 {
