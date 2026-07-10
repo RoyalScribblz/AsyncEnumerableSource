@@ -1,0 +1,90 @@
+name: Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Verify release branch
+        shell: bash
+        run: |
+          case "${GITHUB_REF}" in
+            refs/heads/main|refs/heads/hotfix/*)
+              echo "Releasing from ${GITHUB_REF}."
+              ;;
+            *)
+              echo "This release workflow can only run on 'main' or 'hotfix/*' branches."
+              exit 1
+              ;;
+          esac
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Install GitVersion
+        run: dotnet tool install --global GitVersion.Tool --version 6.4.0
+
+      - name: Determine version
+        id: version
+        shell: bash
+        run: |
+          VERSION_JSON=$(dotnet-gitversion /output json)
+          VERSION=$(echo "$VERSION_JSON" | jq -r '.MajorMinorPatch')
+
+          if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
+            echo "Failed to determine version from GitVersion."
+            echo "$VERSION_JSON"
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION"
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build -c Release --no-restore -p:Version=${{ steps.version.outputs.version }}
+
+      - name: Test
+        run: dotnet test -c Release --no-build
+
+      - name: Pack NuGet package
+        run: dotnet pack AsyncEnumerableSource/AsyncEnumerableSource.csproj -c Release --no-build --output nupkgs -p:PackageVersion=${{ steps.version.outputs.version }} -p:Version=${{ steps.version.outputs.version }}
+
+      - name: Tag release
+        shell: bash
+        run: |
+          TAG="v${{ steps.version.outputs.version }}"
+          CURRENT_COMMIT=$(git rev-parse HEAD)
+
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            TAG_COMMIT=$(git rev-list -n 1 "$TAG")
+            if [ "$TAG_COMMIT" != "$CURRENT_COMMIT" ]; then
+              echo "Tag $TAG already exists on $TAG_COMMIT, not current commit $CURRENT_COMMIT."
+              exit 1
+            fi
+
+            echo "Tag $TAG already exists on the current commit."
+          else
+            git config user.name "GitHub Actions Release Bot"
+            git config user.email "actions@github.com"
+            git tag "$TAG"
+            git push origin "$TAG"
+          fi
+
+      - name: Publish package to NuGet
+        run: dotnet nuget push "./nupkgs/*.nupkg" --api-key "${{ secrets.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
