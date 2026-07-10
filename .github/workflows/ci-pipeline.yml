@@ -11,12 +11,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: 9.0.x
+          dotnet-version: 10.0.x
 
       - name: Restore dependencies
         run: dotnet restore
@@ -26,12 +26,3 @@ jobs:
 
       - name: Test
         run: dotnet test -c Release --no-build
-
-      - name: Benchmark
-        run: dotnet run -c Release --project AsyncEnumerableSource.Benchmarks --no-build
-
-      - name: Publish Benchmarks
-        uses: actions/upload-artifact@v4
-        with:
-          name: benchmarks
-          path: ${{ github.workspace }}/BenchmarkDotNet.Artifacts/results
