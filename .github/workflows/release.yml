@@ -20,11 +20,11 @@ jobs:
         shell: bash
         run: |
           case "${GITHUB_REF}" in
-            refs/heads/main|refs/heads/hotfix/*)
+            refs/heads/master|refs/heads/hotfix/*)
               echo "Releasing from ${GITHUB_REF}."
               ;;
             *)
-              echo "This release workflow can only run on 'main' or 'hotfix/*' branches."
+              echo "This release workflow can only run on 'master' or 'hotfix/*' branches."
               exit 1
               ;;
           esac
