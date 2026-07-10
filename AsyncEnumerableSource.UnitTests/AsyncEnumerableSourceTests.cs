@@ -6,6 +6,7 @@ public sealed class AsyncEnumerableSourceTests
     public async Task AsyncEnumerable_From_Source_Should_Yield_Items_Yielded_On_Source()
     {
         // Arrange
+        var ct = TestContext.Current.CancellationToken;
         var expected = Enumerable.Range(0, 5).ToList();
         
         var source = new AsyncEnumerableSource<int>();
@@ -16,7 +17,7 @@ public sealed class AsyncEnumerableSourceTests
         {
             List<int> items = [];
             
-            await foreach (var item in source.GetAsyncEnumerable())
+            await foreach (var item in source.GetAsyncEnumerable(ct))
             {
                 items.Add(item);
             }
@@ -42,6 +43,7 @@ public sealed class AsyncEnumerableSourceTests
     public async Task Multiple_AsyncEnumerables_From_Source_Should_Yield_Same_Items_Yielded_On_Source()
     {
         // Arrange
+        var ct = TestContext.Current.CancellationToken;
         var expected = Enumerable.Range(0, 5).ToList();
         
         var source = new AsyncEnumerableSource<int>();
@@ -57,7 +59,7 @@ public sealed class AsyncEnumerableSourceTests
         {
             List<int> items = [];
             
-            await foreach (var item in source.GetAsyncEnumerable())
+            await foreach (var item in source.GetAsyncEnumerable(ct))
             {
                 items.Add(item);
             }
@@ -86,6 +88,7 @@ public sealed class AsyncEnumerableSourceTests
     public async Task AsyncEnumerable_From_Source_Should_Yield_Items_Yielded_On_Source_As_Batch()
     {
         // Arrange
+        var ct = TestContext.Current.CancellationToken;
         var expected = Enumerable.Range(0, 5).ToList();
         
         var source = new AsyncEnumerableSource<int>();
@@ -96,7 +99,7 @@ public sealed class AsyncEnumerableSourceTests
         {
             List<int> items = [];
             
-            await foreach (var item in source.GetAsyncEnumerable())
+            await foreach (var item in source.GetAsyncEnumerable(ct))
             {
                 items.Add(item);
             }
@@ -105,7 +108,7 @@ public sealed class AsyncEnumerableSourceTests
         }
 
         // Act
-        await source.YieldReturn(expected);
+        await source.YieldReturn(expected, ct);
         source.Complete();
         
         var result = await task;
@@ -118,6 +121,7 @@ public sealed class AsyncEnumerableSourceTests
     public async Task Multiple_AsyncEnumerables_From_Source_Should_Yield_Same_Items_Yielded_On_Source_As_Async_Batch()
     {
         // Arrange
+        var ct = TestContext.Current.CancellationToken;
         var expected = Enumerable.Range(0, 5).ToList();
         
         var source = new AsyncEnumerableSource<int>();
@@ -133,7 +137,7 @@ public sealed class AsyncEnumerableSourceTests
         {
             List<int> items = [];
             
-            await foreach (var item in source.GetAsyncEnumerable())
+            await foreach (var item in source.GetAsyncEnumerable(ct))
             {
                 items.Add(item);
             }
@@ -151,7 +155,7 @@ public sealed class AsyncEnumerableSourceTests
         }
 
         // Act
-        await source.YieldReturn(GetValues());
+        await source.YieldReturn(GetValues(), ct);
         source.Complete();
 
         var results = await Task.WhenAll(tasks);
@@ -167,6 +171,7 @@ public sealed class AsyncEnumerableSourceTests
     public async Task AsyncEnumerable_From_Source_Should_Throw_Exception_Faulted_On_Source()
     {
         // Arrange
+        var ct = TestContext.Current.CancellationToken;
         var expected = Enumerable.Range(0, 5).ToList();
         var expectedException = new Exception("Test-Error");
         
@@ -181,7 +186,7 @@ public sealed class AsyncEnumerableSourceTests
 
             try
             {
-                await foreach (var item in source.GetAsyncEnumerable())
+                await foreach (var item in source.GetAsyncEnumerable(ct))
                 {
                     items.Add(item);
                 }
@@ -213,6 +218,7 @@ public sealed class AsyncEnumerableSourceTests
     public async Task Multiple_AsyncEnumerables_From_Source_Should_Throw_Exception_Faulted_On_Source()
     {
         // Arrange
+        var ct = TestContext.Current.CancellationToken;
         var expected = Enumerable.Range(0, 5).ToList();
         var expectedException = new Exception("Test-Error");
         
@@ -227,7 +233,7 @@ public sealed class AsyncEnumerableSourceTests
 
             try
             {
-                await foreach (var item in source.GetAsyncEnumerable())
+                await foreach (var item in source.GetAsyncEnumerable(ct))
                 {
                     items.Add(item);
                 }
@@ -262,12 +268,13 @@ public sealed class AsyncEnumerableSourceTests
     public async Task AsyncEnumerable_From_Source_Should_Stop_Yielding_When_Cancelled()
     {
         // Arrange
+        var ct = TestContext.Current.CancellationToken;
         var expected = Enumerable.Range(0, 5).ToList();
         var cts = new CancellationTokenSource();
         
         var source = new AsyncEnumerableSource<int>();
 
-        var task = GetItemsFromAsyncEnumerable();
+        var task = GetItemsFromAsyncEnumerable(ct);
         var cancelledTask = GetItemsFromAsyncEnumerable(cts.Token);
         
         async Task<List<int>> GetItemsFromAsyncEnumerable(CancellationToken cancellationToken = default)
@@ -294,7 +301,7 @@ public sealed class AsyncEnumerableSourceTests
             await source.YieldReturn(item);
         }
 
-        await Task.Delay(2);  // Allow time for channel to emit previous values before the task is cancelled
+        await Task.Delay(2, ct);  // Allow time for channel to emit previous values before the task is cancelled
         await cts.CancelAsync();
 
         foreach (var item in expected[3..])
@@ -316,6 +323,7 @@ public sealed class AsyncEnumerableSourceTests
     public async Task AsyncEnumerable_From_Source_Should_Not_Yield_When_Source_Completed()
     {
         // Arrange
+        var ct = TestContext.Current.CancellationToken;
         var expected = Enumerable.Range(0, 5).ToList();
         var yieldedAfterComplete = Random.Shared.Next(expected.Max(), int.MaxValue);
         
@@ -327,7 +335,7 @@ public sealed class AsyncEnumerableSourceTests
         {
             List<int> items = [];
             
-            await foreach (var item in source.GetAsyncEnumerable())
+            await foreach (var item in source.GetAsyncEnumerable(ct))
             {
                 items.Add(item);
             }
