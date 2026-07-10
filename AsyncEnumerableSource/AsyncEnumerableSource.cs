@@ -63,19 +63,9 @@ public sealed class AsyncEnumerableSource<T> : AsyncEnumerableSource, IDisposabl
     private readonly int? _boundedCapacity;
 
     /// <summary>
-    /// Threshold at which <c>CollectionsMarshal.AsSpan().CopyTo()</c> becomes slower than <c>.CopyTo()</c>.
+    /// Threshold at which <see cref="Parallel"/> becomes faster than a <c>for</c> loop for faulting active consumers.
     /// </summary>
-    private const int AsSpanCopyToThreshold = 5000;
-
-    /// <summary>
-    /// Threshold at which <c>await Task.WhenAll()</c> becomes faster than <c>Parallel.ForEach()</c> and <c>foreach</c> when the channels are bounded.
-    /// </summary>
-    private const int WhenAllBoundedThreshold = 10;
-
-    /// <summary>
-    /// Threshold at which <see cref="Parallel"/> methods become faster than <c>for</c> and <c>foreach</c> for <see cref="Channel{T}"/> writes.
-    /// </summary>
-    private const int ParallelWriteThreshold = 50;
+    private const int ParallelFaultThreshold = 64;
 
     /// <summary>
     /// Initializes a new instance of <see cref="AsyncEnumerableSource{T}"/>.
@@ -111,6 +101,16 @@ public sealed class AsyncEnumerableSource<T> : AsyncEnumerableSource, IDisposabl
         _lock.EnterWriteLock();
         try
         {
+            if (_exception != null)
+            {
+                throw _exception;
+            }
+
+            if (_completed)
+            {
+                yield break;
+            }
+
             _channels.Add(channel);
         }
         finally
@@ -234,16 +234,9 @@ public sealed class AsyncEnumerableSource<T> : AsyncEnumerableSource, IDisposabl
 
         try
         {
-            if (consumerCount >= ParallelWriteThreshold)
+            for (var index = 0; index < consumerCount; index++)
             {
-                Parallel.For(0, consumerCount, index => channelsSnapshot[index].Writer.Complete());
-            }
-            else
-            {
-                for (var index = 0; index < consumerCount; index++)
-                {
-                    channelsSnapshot[index].Writer.Complete();
-                }
+                channelsSnapshot[index].Writer.Complete();
             }
         }
         finally
@@ -269,7 +262,7 @@ public sealed class AsyncEnumerableSource<T> : AsyncEnumerableSource, IDisposabl
 
         try
         {
-            if (consumerCount >= ParallelWriteThreshold)
+            if (consumerCount >= ParallelFaultThreshold)
             {
                 Parallel.For(0, consumerCount, index => channelsSnapshot[index].Writer.Complete(error));
             }
@@ -308,14 +301,7 @@ public sealed class AsyncEnumerableSource<T> : AsyncEnumerableSource, IDisposabl
             }
 
             channelsSnapshot = ArrayPool<Channel<T>>.Shared.Rent(consumerCount);
-            if (consumerCount <= AsSpanCopyToThreshold)
-            {
-                CollectionsMarshal.AsSpan(_channels).CopyTo(channelsSnapshot);
-            }
-            else
-            {
-                _channels.CopyTo(channelsSnapshot);
-            }
+            CollectionsMarshal.AsSpan(_channels).CopyTo(channelsSnapshot);
 
             return true;
         }
@@ -331,30 +317,9 @@ public sealed class AsyncEnumerableSource<T> : AsyncEnumerableSource, IDisposabl
         int consumerCount,
         CancellationToken ct = default)
     {
-        if (consumerCount >= WhenAllBoundedThreshold && _boundedCapacity.HasValue)
+        for (var index = 0; index < consumerCount; index++)
         {
-            var tasks = new Task[consumerCount];
-            for (var index = 0; index < consumerCount; index++)
-            {
-                tasks[index] = channelsSnapshot[index].Writer.WriteAsync(value, ct).AsTask();
-            }
-
-            await Task.WhenAll(tasks).ConfigureAwait(false);
-        }
-        else if (consumerCount >= ParallelWriteThreshold)
-        {
-            await Parallel.ForAsync(
-                0,
-                consumerCount,
-                ct,
-                (index, writeCt) => channelsSnapshot[index].Writer.WriteAsync(value, writeCt)).ConfigureAwait(false);
-        }
-        else
-        {
-            for (var index = 0; index < consumerCount; index++)
-            {
-                await channelsSnapshot[index].Writer.WriteAsync(value, ct).ConfigureAwait(false);
-            }
+            await channelsSnapshot[index].Writer.WriteAsync(value, ct).ConfigureAwait(false);
         }
     }
 }

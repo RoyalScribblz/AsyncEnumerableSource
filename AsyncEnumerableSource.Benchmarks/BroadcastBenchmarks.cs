@@ -5,6 +5,7 @@ namespace JLloyd.AsyncSources.Benchmarks;
 public class BroadcastBenchmarks
 {
     private const int Unbounded = 0;
+    private const int ContendedBounded = 1;
 
     private int[] _values = [];
 
@@ -14,7 +15,7 @@ public class BroadcastBenchmarks
     [Params(256)]
     public int Items { get; set; }
 
-    [Params(Unbounded, 1024)]
+    [Params(Unbounded, ContendedBounded, 1024)]
     public int Capacity { get; set; }
 
     [GlobalSetup]
