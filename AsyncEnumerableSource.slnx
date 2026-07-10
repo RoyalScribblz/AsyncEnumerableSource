@@ -7,6 +7,7 @@
     <Folder Name="/Solution Items/Pipelines/">
         <File Path=".github/workflows/ci-pipeline.yml"/>
         <File Path=".github/workflows/release.yml"/>
+        <File Path=".github/workflows/benchmarks.yml"/>
     </Folder>
     <Project Path="AsyncEnumerableSource.Benchmarks/AsyncEnumerableSource.Benchmarks.csproj" />
     <Project Path="AsyncEnumerableSource.UnitTests/AsyncEnumerableSource.UnitTests.csproj" />
