@@ -2,9 +2,9 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [ "main", "hotfix/**" ]
+    branches: [ "master", "hotfix/**" ]
   pull_request:
-    branches: [ "main", "hotfix/**" ]
+    branches: [ "master", "hotfix/**" ]
 
 jobs:
   build:

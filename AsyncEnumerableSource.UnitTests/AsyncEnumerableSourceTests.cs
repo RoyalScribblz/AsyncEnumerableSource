@@ -83,6 +83,87 @@ public sealed class AsyncEnumerableSourceTests
     }
     
     [Fact]
+    public async Task AsyncEnumerable_From_Source_Should_Yield_Items_Yielded_On_Source_As_Batch()
+    {
+        // Arrange
+        var expected = Enumerable.Range(0, 5).ToList();
+        
+        var source = new AsyncEnumerableSource<int>();
+
+        var task = GetItemsFromAsyncEnumerable();
+        
+        async Task<List<int>> GetItemsFromAsyncEnumerable()
+        {
+            List<int> items = [];
+            
+            await foreach (var item in source.GetAsyncEnumerable())
+            {
+                items.Add(item);
+            }
+            
+            return items;
+        }
+
+        // Act
+        await source.YieldReturn(expected);
+        source.Complete();
+        
+        var result = await task;
+
+        // Assert
+        result.Should().BeEquivalentTo(expected);
+    }
+
+    [Fact]
+    public async Task Multiple_AsyncEnumerables_From_Source_Should_Yield_Same_Items_Yielded_On_Source_As_Async_Batch()
+    {
+        // Arrange
+        var expected = Enumerable.Range(0, 5).ToList();
+        
+        var source = new AsyncEnumerableSource<int>();
+
+        List<Task<List<int>>> tasks = [];
+
+        for (var i = 0; i < 5; i++)
+        {
+            tasks.Add(GetItemsFromAsyncEnumerable());
+        }
+        
+        async Task<List<int>> GetItemsFromAsyncEnumerable()
+        {
+            List<int> items = [];
+            
+            await foreach (var item in source.GetAsyncEnumerable())
+            {
+                items.Add(item);
+            }
+            
+            return items;
+        }
+
+        async IAsyncEnumerable<int> GetValues()
+        {
+            foreach (var item in expected)
+            {
+                await Task.Yield();
+                yield return item;
+            }
+        }
+
+        // Act
+        await source.YieldReturn(GetValues());
+        source.Complete();
+
+        var results = await Task.WhenAll(tasks);
+
+        // Assert
+        foreach (var result in results)
+        {
+            result.Should().BeEquivalentTo(expected);
+        }
+    }
+    
+    [Fact]
     public async Task AsyncEnumerable_From_Source_Should_Throw_Exception_Faulted_On_Source()
     {
         // Arrange

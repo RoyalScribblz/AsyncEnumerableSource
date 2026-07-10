@@ -206,38 +206,7 @@ namespace JLloyd.AsyncSources
 
             try
             {
-                if (consumerCount >= WhenAllBoundedThreshold && _boundedCapacity.HasValue)
-                {
-                    var tasks = new Task[consumerCount];
-                    for (var index = 0; index < consumerCount; index++)
-                    {
-                        tasks[index] = channelsSnapshot[index].Writer.WriteAsync(value).AsTask();
-                    }
-
-                    await Task.WhenAll(tasks);
-                }
-#if NET8_0_OR_GREATER
-                else if (consumerCount >= ParallelWriteThreshold)
-                {
-                    await Parallel.ForAsync(0, consumerCount,
-                        async (index, ct) => await channelsSnapshot[index].Writer.WriteAsync(value, ct));
-                }
-                else
-                {
-                    for (var index = 0; index < consumerCount; index++)
-                    {
-                        await channelsSnapshot[index].Writer.WriteAsync(value);
-                    }
-                }
-#else
-                else
-                {
-                    for (var index = 0; index < consumerCount; index++)
-                    {
-                        await channelsSnapshot[index].Writer.WriteAsync(value);
-                    }
-                }
-#endif
+                await WriteToChannels(value, channelsSnapshot, consumerCount);
             }
             finally
             {
@@ -246,6 +215,177 @@ namespace JLloyd.AsyncSources
                     ArrayPool<Channel<T>>.Shared.Return(channelsSnapshot);
                 }
             }
+        }
+
+        /// <summary>
+        /// Yields values to all consumers of the <see cref="AsyncEnumerableSource{T}"/>.
+        /// </summary>
+        /// <param name="values">The values to yield.</param>
+        /// <param name="cancellationToken">Token to cancel the write operation.</param>
+        public async ValueTask YieldReturn(IEnumerable<T> values, CancellationToken cancellationToken = default)
+        {
+            if (values == null)
+            {
+                throw new ArgumentNullException(nameof(values));
+            }
+
+            if (_completed == True)
+            {
+                return;
+            }
+
+            Channel<T>[] channelsSnapshot;
+            int consumerCount;
+
+            _lock.EnterReadLock();
+            try
+            {
+                consumerCount = _channels.Count;
+                
+                if (consumerCount == 0)
+                {
+                    return;
+                }
+
+                channelsSnapshot = ArrayPool<Channel<T>>.Shared.Rent(consumerCount);
+#if NET6_0_OR_GREATER
+                if (consumerCount <= AsSpanCopyToThreshold)
+                {
+                    CollectionsMarshal.AsSpan(_channels).CopyTo(channelsSnapshot);
+                }
+                else
+                {
+                    _channels.CopyTo(channelsSnapshot);
+                }
+#else
+                _channels.CopyTo(channelsSnapshot);
+#endif
+            }
+            finally
+            {
+                _lock.ExitReadLock();
+            }
+
+            try
+            {
+                foreach (var value in values)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    await WriteToChannels(value, channelsSnapshot, consumerCount, cancellationToken);
+                }
+            }
+            finally
+            {
+                if (channelsSnapshot != null)
+                {
+                    ArrayPool<Channel<T>>.Shared.Return(channelsSnapshot);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Yields values to all consumers of the <see cref="AsyncEnumerableSource{T}"/>.
+        /// </summary>
+        /// <param name="values">The values to yield.</param>
+        /// <param name="cancellationToken">Token to cancel the write operation.</param>
+        public async ValueTask YieldReturn(IAsyncEnumerable<T> values, CancellationToken cancellationToken = default)
+        {
+            if (values == null)
+            {
+                throw new ArgumentNullException(nameof(values));
+            }
+
+            if (_completed == True)
+            {
+                return;
+            }
+
+            Channel<T>[] channelsSnapshot;
+            int consumerCount;
+
+            _lock.EnterReadLock();
+            try
+            {
+                consumerCount = _channels.Count;
+                
+                if (consumerCount == 0)
+                {
+                    return;
+                }
+
+                channelsSnapshot = ArrayPool<Channel<T>>.Shared.Rent(consumerCount);
+#if NET6_0_OR_GREATER
+                if (consumerCount <= AsSpanCopyToThreshold)
+                {
+                    CollectionsMarshal.AsSpan(_channels).CopyTo(channelsSnapshot);
+                }
+                else
+                {
+                    _channels.CopyTo(channelsSnapshot);
+                }
+#else
+                _channels.CopyTo(channelsSnapshot);
+#endif
+            }
+            finally
+            {
+                _lock.ExitReadLock();
+            }
+
+            try
+            {
+                await foreach (var value in values.WithCancellation(cancellationToken).ConfigureAwait(false))
+                {
+                    await WriteToChannels(value, channelsSnapshot, consumerCount, cancellationToken);
+                }
+            }
+            finally
+            {
+                if (channelsSnapshot != null)
+                {
+                    ArrayPool<Channel<T>>.Shared.Return(channelsSnapshot);
+                }
+            }
+        }
+
+        private async ValueTask WriteToChannels(
+            T value,
+            Channel<T>[] channelsSnapshot,
+            int consumerCount,
+            CancellationToken cancellationToken = default)
+        {
+            if (consumerCount >= WhenAllBoundedThreshold && _boundedCapacity.HasValue)
+            {
+                var tasks = new Task[consumerCount];
+                for (var index = 0; index < consumerCount; index++)
+                {
+                    tasks[index] = channelsSnapshot[index].Writer.WriteAsync(value, cancellationToken).AsTask();
+                }
+
+                await Task.WhenAll(tasks);
+            }
+#if NET8_0_OR_GREATER
+            else if (consumerCount >= ParallelWriteThreshold)
+            {
+                await Parallel.ForAsync(0, consumerCount, cancellationToken,
+                    async (index, ct) => await channelsSnapshot[index].Writer.WriteAsync(value, ct));
+            }
+            else
+            {
+                for (var index = 0; index < consumerCount; index++)
+                {
+                    await channelsSnapshot[index].Writer.WriteAsync(value, cancellationToken);
+                }
+            }
+#else
+            else
+            {
+                for (var index = 0; index < consumerCount; index++)
+                {
+                    await channelsSnapshot[index].Writer.WriteAsync(value, cancellationToken);
+                }
+            }
+#endif
         }
 
         /// <summary>
