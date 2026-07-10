@@ -1,0 +1,14 @@
+<Solution>
+    <Folder Name="/Solution Items/">
+        <File Path="README.md"/>
+        <File Path=".gitignore"/>
+        <File Path="LICENSE"/>
+    </Folder>
+    <Folder Name="/Solution Items/Pipelines/">
+        <File Path=".github/workflows/ci-pipeline.yml"/>
+        <File Path=".github/workflows/release.yml"/>
+    </Folder>
+    <Project Path="AsyncEnumerableSource.Benchmarks/AsyncEnumerableSource.Benchmarks.csproj" />
+    <Project Path="AsyncEnumerableSource.UnitTests/AsyncEnumerableSource.UnitTests.csproj" />
+    <Project Path="AsyncEnumerableSource/AsyncEnumerableSource.csproj" />
+</Solution>
