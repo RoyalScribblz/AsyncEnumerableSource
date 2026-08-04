@@ -1,0 +1,34 @@
+name: Benchmarks
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  benchmarks:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build -c Release --no-restore
+
+      - name: Benchmark
+        run: dotnet run -c Release --project AsyncEnumerableSource.Benchmarks --no-build
+
+      - name: Publish Benchmarks
+        uses: actions/upload-artifact@v7
+        with:
+          name: benchmarks
+          path: ${{ github.workspace }}/BenchmarkDotNet.Artifacts/results

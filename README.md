@@ -1,6 +1,6 @@
 ﻿# AsyncEnumerableSource
 
-![.NET](https://img.shields.io/badge/Targets-.NET%209,%20.NET%208,%20.NET%206,%20netstandard%202.1-5937cf)
+![.NET](https://img.shields.io/badge/Targets-.NET%2010-5937cf)
 ![language](https://img.shields.io/badge/language-C%23-239120)
 ![OS](https://img.shields.io/badge/OS-Linux%2C%20macOS%2C%20Windows-0078D4)
 ![GitHub last commit](https://img.shields.io/github/last-commit/RoyalScribblz/AsyncEnumerableSource)
@@ -9,6 +9,8 @@
 `AsyncEnumerableSource<T>` is a high-performance, thread-safe asynchronous enumerable source designed to facilitate
 multiple consumers of a data stream. This implementation leverages `System.Threading.Channels` to efficiently handle
 asynchronous data production and consumption.
+
+Version 2.x targets .NET 10. Use the 1.3.x line for older target frameworks.
 
 ## Features
 * Supports multiple consumers subscribing to an asynchronous data stream.
@@ -39,6 +41,16 @@ await foreach (var item in source.GetAsyncEnumerable())
 ### Producing Data
 ```csharp
 source.YieldReturn(value)
+```
+
+For batch yielding:
+```csharp
+await source.YieldReturn(values);
+```
+
+For asynchronous batch yielding:
+```csharp
+await source.YieldReturn(asyncValues);
 ```
 
 ### Completing the Source
